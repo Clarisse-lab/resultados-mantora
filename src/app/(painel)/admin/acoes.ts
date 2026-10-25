@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { exigirEquipe } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { reprocessar } from "@/lib/integracoes/ingestao";
-import { sincronizarMeta } from "@/lib/integracoes/meta-ads";
+import { sincronizarEmSegundoPlano } from "@/lib/integracoes/meta-ads";
 import { criarEtapasPadrao } from "@/lib/comercial";
 import { cifrar } from "@/lib/cripto";
 import { removerTokenGlobal, salvarTokenGlobal } from "@/lib/integracoes/meta-token";
@@ -58,20 +58,6 @@ export async function criarIntegracao(f: FormData) {
   revalidatePath(`/admin/clientes/${cliente}`);
 }
 
-export async function atualizarIntegracao(f: FormData) {
-  await exigirEquipe();
-  const id = txt(f, "id");
-  const segredo = txt(f, "segredo");
-  const [i] = await sql<{ cliente_id: string }[]>`
-    update integracoes set
-      nome = ${txt(f, "nome")},
-      conta_id = ${txt(f, "conta_id").replace(/^act_/, "") || null},
-      segredo = case when ${segredo} = '' then segredo else ${segredo ? cifrar(segredo) : ""} end,
-      ativo = ${f.get("ativo") === "on"}
-    where id = ${id} returning cliente_id`;
-  if (i) revalidatePath(`/admin/clientes/${i.cliente_id}`);
-}
-
 export async function excluirIntegracao(f: FormData) {
   await exigirEquipe();
   const [i] = await sql<{ cliente_id: string }[]>`delete from integracoes where id = ${txt(f, "id")} returning cliente_id`;
@@ -81,11 +67,7 @@ export async function excluirIntegracao(f: FormData) {
 export async function sincronizarAgora(f: FormData) {
   await exigirEquipe();
   const id = txt(f, "id");
-  try {
-    await sincronizarMeta(id, Number(txt(f, "dias")) || 30);
-  } catch {
-    // o erro fica gravado em integracoes.ultimo_erro e aparece na tela
-  }
+  await sincronizarEmSegundoPlano(id, Math.min(Number(txt(f, "dias")) || 30, 365));
   const [i] = await sql<{ cliente_id: string }[]>`select cliente_id from integracoes where id = ${id}`;
   if (i) revalidatePath(`/admin/clientes/${i.cliente_id}`);
 }
@@ -158,19 +140,27 @@ export async function removerTokenMeta() {
   revalidatePath("/admin/meta");
 }
 
-/** Liga uma conta de anúncio (vista pelo token da Mantora) a um cliente e já traz 30 dias. */
+/** Liga uma conta de anúncio (vista pelo token da Mantora) a um cliente e começa a trazer 90 dias. */
 export async function conectarContaMeta(f: FormData) {
   await exigirEquipe();
   const cliente = txt(f, "cliente_id");
   const [conta, ...nome] = txt(f, "conta").split("|");
   if (!/^\d{5,25}$/.test(conta)) return;
-  const [i] = await sql<{ id: string }[]>`
+  await sql`
     insert into integracoes (cliente_id, tipo, nome, conta_id)
-    values (${cliente}, 'meta_ads', ${nome.join("|") || "Meta Ads"}, ${conta}) returning id`;
-  try {
-    await sincronizarMeta(i.id, 30);
-  } catch {
-    // erro fica registrado na integração e aparece na tela
-  }
+    values (${cliente}, 'meta_ads', ${nome.join("|") || "Meta Ads"}, ${conta})
+    on conflict (cliente_id, conta_id) where tipo = 'meta_ads' do nothing`;
+  const [i] = await sql<{ id: string }[]>`
+    select id from integracoes where cliente_id = ${cliente} and tipo = 'meta_ads' and conta_id = ${conta}`;
+  if (i) await sincronizarEmSegundoPlano(i.id, 90);
   revalidatePath(`/admin/clientes/${cliente}`);
+}
+
+/** Salva só o segredo (hottok, token da Kiwify...) de uma integração. */
+export async function salvarSegredo(f: FormData) {
+  await exigirEquipe();
+  const segredo = txt(f, "segredo");
+  const [i] = await sql<{ cliente_id: string }[]>`
+    update integracoes set segredo = ${segredo ? cifrar(segredo) : null} where id = ${txt(f, "id")} returning cliente_id`;
+  if (i) revalidatePath(`/admin/clientes/${i.cliente_id}`);
 }

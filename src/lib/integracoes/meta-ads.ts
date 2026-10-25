@@ -113,3 +113,26 @@ export async function sincronizarTodas(dias = 3) {
   }
   return resultado;
 }
+
+/** Uma sincronização "presa" (servidor reiniciado no meio) deixa de bloquear depois disto. */
+export const SYNC_TRAVADA_MIN = 15;
+
+/**
+ * Dispara a sincronização sem segurar a resposta da tela (contas grandes levam minutos).
+ * A integração fica marcada como "sincronizando" até terminar; o erro, se houver, vai para ultimo_erro.
+ */
+export async function sincronizarEmSegundoPlano(integracaoId: string, dias: number) {
+  const r = await sql`
+    update integracoes set sincronizando_desde = now(), ultimo_erro = null
+    where id = ${integracaoId}
+      and (sincronizando_desde is null or sincronizando_desde < now() - make_interval(mins => ${SYNC_TRAVADA_MIN}))`;
+  if (r.count === 0) return false; // já está sincronizando
+  void sincronizarMeta(integracaoId, dias)
+    .catch(async (e) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[meta] falha", integracaoId, msg);
+      await sql`update integracoes set ultimo_erro = ${msg} where id = ${integracaoId}`.catch(() => {});
+    })
+    .finally(() => sql`update integracoes set sincronizando_desde = null where id = ${integracaoId}`.catch(() => {}));
+  return true;
+}
