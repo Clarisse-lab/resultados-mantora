@@ -9,6 +9,16 @@ Painel de marketing e vendas dos clientes Mantora. Junta, por cliente:
 e mostra KPIs, funil, investimento × faturamento × ROAS, mapa por estado e cidade, ranking de
 campanhas, conjuntos e anúncios, e a tabela de vendas com exportação CSV.
 
+No **Comercial**:
+
+- **Kanban comercial**: os leads do período nas etapas Lead → Agendamento → Call realizada → Checkout → Venda.
+  Os SDRs arrastam os cards entre as etapas intermediárias; Checkout e Venda são preenchidas sozinhas
+  quando a mesma pessoa (telefone ou e-mail) abre checkout ou compra. Cada lead tem SDR, motivo de perda,
+  observações e botão para abrir o WhatsApp. A equipe pode criar e renomear etapas.
+- **LTV Ascensão**: todos os clientes que já compraram, com um score RFM (valor gasto 45%, nº de compras 25%,
+  recência 30%) que os separa em prioridade alta, média e baixa para a abordagem de renovação ou upgrade.
+  Quem compra de novo durante a abordagem vai sozinho para "Recomprou".
+
 A equipe Mantora vê todos os clientes. Cada cliente entra com o próprio login e vê só os seus dados.
 
 A engenharia reversa do painel de referência está em [`docs/engenharia-reversa`](docs/engenharia-reversa/README.md).

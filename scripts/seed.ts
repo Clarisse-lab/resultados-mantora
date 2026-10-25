@@ -24,6 +24,7 @@ await sql`delete from checkouts where cliente_id = ${cid}`;
 await sql`delete from midia_diaria where cliente_id = ${cid}`;
 await sql`delete from integracoes where cliente_id = ${cid}`;
 await sql`delete from metas where cliente_id = ${cid}`;
+await sql`delete from ascensao_status where cliente_id = ${cid}`;
 
 await sql`insert into integracoes (cliente_id, tipo, nome) values
   (${cid}, 'kiwify', 'Kiwify'), (${cid}, 'hotmart', 'Hotmart'), (${cid}, 'captura_leads', 'Página de cadastro')`;
@@ -142,6 +143,43 @@ for (let d = DIAS - 1; d >= 0; d--) {
       });
     }
   }
+}
+
+// Parte dos compradores volta a comprar (renovação/upgrade) — alimenta a LTV Ascensão
+for (const v of [...vendas]) {
+  if (rnd() < 0.18) {
+    const depois = new Date((v.aprovado_em as Date).getTime() + (20 + rnd() * 120) * 86400000);
+    if (depois > hoje) continue;
+    const p = escolher(produtos);
+    vendas.push({ ...v, id_externo: `demo-${vendas.length}`, criado_em: depois, aprovado_em: depois, produto: p.nome, valor: p.valor, status: "aprovada" });
+  }
+}
+// Histórico mais antigo, para a carteira ter clientes de meses atrás
+for (let k = 0; k < 400; k++) {
+  const quando = new Date(hoje.getTime() - (DIAS + rnd() * 300) * 86400000);
+  const tel = telefone();
+  const p = escolher(produtos);
+  const nome = `${escolher(nomes)} ${escolher(sobrenomes)}`;
+  const compras = rnd() < 0.25 ? 2 + Math.floor(rnd() * 3) : 1;
+  for (let c = 0; c < compras; c++) {
+    const d = new Date(quando.getTime() + c * (40 + rnd() * 80) * 86400000);
+    if (d > hoje) break;
+    vendas.push({
+      cliente_id: cid, provedor: "hotmart", id_externo: `demo-${vendas.length}`, criado_em: d, aprovado_em: d,
+      status: "aprovada", status_bruto: "demo", nome, telefone: tel, uf: ufPorTelefone(tel), produto: p.nome, valor: p.valor,
+      metodo: "credit_card", categoria: "nao-definido", origem: "Não definido", contexto: "perpetuo",
+    });
+  }
+}
+// Leads trabalhados pelos SDRs
+const SDRS = ["Camila", "Rafael", "Bianca"];
+for (const l of leads) {
+  const r = rnd();
+  l.etapa = "lead";
+  if (r < 0.5) l.sdr = escolher(SDRS);
+  if (r < 0.06) l.etapa = "agendamento";
+  else if (r < 0.09) l.etapa = "call";
+  if (rnd() < 0.05) l.motivo_perda = escolher(["Sem orçamento", "Sem retorno / sumiu", "Adiou a decisão", "Sem perfil"]);
 }
 
 const inserir = async (tabela: string, linhas: Record<string, unknown>[]) => {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BarChart3, Building2, LogOut, Menu, Receipt, X } from "lucide-react";
+import { BarChart3, Building2, KanbanSquare, LogOut, Menu, Receipt, TrendingUp, X } from "lucide-react";
 import { useState } from "react";
 import { Marca } from "./Marca";
 
@@ -28,6 +28,8 @@ export function MenuLateral({ email, equipe, clientes, clienteAtual }: Props) {
   const itens = [
     { href: "/visao-geral", rotulo: "Visão geral", icone: BarChart3, comFiltro: true },
     { href: "/vendas", rotulo: "Vendas detalhadas", icone: Receipt, comFiltro: true },
+    { href: "/comercial", rotulo: "Kanban comercial", icone: KanbanSquare, comFiltro: true, exato: true },
+    { href: "/comercial/ascensao", rotulo: "LTV Ascensão", icone: TrendingUp, comFiltro: false },
     ...(equipe ? [{ href: "/admin/clientes", rotulo: "Clientes e integrações", icone: Building2, comFiltro: false }] : []),
   ];
 
@@ -61,8 +63,8 @@ export function MenuLateral({ email, equipe, clientes, clienteAtual }: Props) {
 
       <nav className="flex-1 space-y-0.5 px-3 pt-2" aria-label="Navegação principal">
         <p className="rotulo px-2 pb-2">Painel</p>
-        {itens.map(({ href, rotulo, icone: Icone, comFiltro }) => {
-          const ativo = caminho === href || caminho.startsWith(`${href}/`);
+        {itens.map(({ href, rotulo, icone: Icone, comFiltro, ...resto }) => {
+          const ativo = caminho === href || (!("exato" in resto) && caminho.startsWith(`${href}/`));
           return (
             <Link
               key={href}

@@ -7,6 +7,7 @@ import { exigirEquipe } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { reprocessar } from "@/lib/integracoes/ingestao";
 import { sincronizarMeta } from "@/lib/integracoes/meta-ads";
+import { criarEtapasPadrao } from "@/lib/comercial";
 
 const txt = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const slugDe = (nome: string) =>
@@ -21,6 +22,7 @@ export async function criarCliente(f: FormData) {
     insert into clientes (nome, slug)
     values (${nome}, ${base} || case when exists (select 1 from clientes where slug = ${base}) then '-' || substr(md5(random()::text), 1, 4) else '' end)
     returning id`;
+  await criarEtapasPadrao(c.id);
   redirect(`/admin/clientes/${c.id}`);
 }
 
