@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { sql } from "../db";
 import { atribuir, contextoPorNome, nomeSemId } from "../atribuicao";
 import { normalizar, tipoEvento, type Provedor, type Resultado } from "./normalizar";
+import { decifrar } from "../cripto";
 
 export type Integracao = {
   id: string;
@@ -21,20 +22,21 @@ export async function integracaoPorToken(token: string): Promise<Integracao | nu
 
 /** Confere a assinatura de cada plataforma quando um segredo foi cadastrado. */
 export function assinaturaValida(i: Integracao, corpo: string, headers: Headers, url: URL): boolean {
-  if (!i.segredo) return true;
+  const segredo = decifrar(i.segredo);
+  if (!segredo) return true;
   if (i.tipo === "hotmart") {
     const hottok = headers.get("x-hotmart-hottok") ?? safeHottok(corpo);
-    return hottok != null && igual(hottok, i.segredo);
+    return hottok != null && igual(hottok, segredo);
   }
   if (i.tipo === "kiwify") {
     const assinatura = url.searchParams.get("signature");
     if (!assinatura) return false;
-    const esperado = createHmac("sha1", i.segredo).update(corpo).digest("hex");
+    const esperado = createHmac("sha1", segredo).update(corpo).digest("hex");
     return igual(assinatura, esperado);
   }
   // PagTrust e outros: segredo opcional enviado como ?secret= ou cabeçalho x-webhook-secret
   const enviado = url.searchParams.get("secret") ?? headers.get("x-webhook-secret");
-  return enviado != null && igual(enviado, i.segredo);
+  return enviado != null && igual(enviado, segredo);
 }
 
 function safeHottok(corpo: string): string | null {

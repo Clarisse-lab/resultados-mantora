@@ -8,6 +8,7 @@ import { sql } from "@/lib/db";
 import { reprocessar } from "@/lib/integracoes/ingestao";
 import { sincronizarMeta } from "@/lib/integracoes/meta-ads";
 import { criarEtapasPadrao } from "@/lib/comercial";
+import { cifrar } from "@/lib/cripto";
 
 const txt = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const slugDe = (nome: string) =>
@@ -52,7 +53,7 @@ export async function criarIntegracao(f: FormData) {
   const nomes: Record<string, string> = { hotmart: "Hotmart", kiwify: "Kiwify", pagtrust: "PagTrust", meta_ads: "Meta Ads", captura_leads: "Captura de leads" };
   await sql`
     insert into integracoes (cliente_id, tipo, nome, segredo, conta_id)
-    values (${cliente}, ${tipo}, ${txt(f, "nome") || nomes[tipo]}, ${txt(f, "segredo") || null}, ${txt(f, "conta_id").replace(/^act_/, "") || null})`;
+    values (${cliente}, ${tipo}, ${txt(f, "nome") || nomes[tipo]}, ${txt(f, "segredo") ? cifrar(txt(f, "segredo")) : null}, ${txt(f, "conta_id").replace(/^act_/, "") || null})`;
   revalidatePath(`/admin/clientes/${cliente}`);
 }
 
@@ -64,7 +65,7 @@ export async function atualizarIntegracao(f: FormData) {
     update integracoes set
       nome = ${txt(f, "nome")},
       conta_id = ${txt(f, "conta_id").replace(/^act_/, "") || null},
-      segredo = case when ${segredo} = '' then segredo else ${segredo} end,
+      segredo = case when ${segredo} = '' then segredo else ${segredo ? cifrar(segredo) : ""} end,
       ativo = ${f.get("ativo") === "on"}
     where id = ${id} returning cliente_id`;
   if (i) revalidatePath(`/admin/clientes/${i.cliente_id}`);

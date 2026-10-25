@@ -1,5 +1,6 @@
 import { sql } from "../db";
 import { contextoPorNome } from "../atribuicao";
+import { decifrar } from "../cripto";
 
 // Sincroniza a Meta Ads Insights por anúncio e por dia.
 // Precisa de um token com permissão ads_read (de preferência de usuário do sistema do Business Manager).
@@ -61,7 +62,7 @@ export async function sincronizarMeta(integracaoId: string, dias = 7) {
   const fmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
   try {
-    const linhas = await buscarInsights(i.conta_id, i.segredo, fmt(de), fmt(ate));
+    const linhas = await buscarInsights(i.conta_id, decifrar(i.segredo)!, fmt(de), fmt(ate));
     for (let k = 0; k < linhas.length; k += 200) {
       const lote = linhas.slice(k, k + 200).map((l) => ({
         cliente_id: i.cliente_id,

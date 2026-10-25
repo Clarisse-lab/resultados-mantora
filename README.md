@@ -54,6 +54,7 @@ Testes: `npm test` · checagem de tipos: `npm run lint`.
    - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
    - `SESSION_SECRET` = um valor longo e aleatório (`openssl rand -hex 32`)
    - `CRON_SECRET` = outro valor aleatório
+   - `ENCRYPTION_KEY` = `openssl rand -hex 32` (criptografa os tokens das integrações; guarde num lugar seguro, sem ela os tokens salvos não podem ser lidos)
 3. Gere um domínio público para o serviço (Settings → Networking).
 4. O `railway.json` cuida do resto: build, migrações a cada deploy e checagem de saúde em `/api/saude`.
 5. Crie o primeiro usuário da equipe com `railway run npm run usuario:criar -- ...`.
