@@ -1,4 +1,7 @@
 import { sql } from "./db";
+import { MENOR_MELHOR_TOP, type LinhaTop, type MetricasTop, type Nivel, type OrdemTop } from "./top-midias-tipos";
+
+export { MENOR_MELHOR_TOP, type LinhaTop, type MetricasTop, type Nivel, type OrdemTop };
 
 export const FUSO = "America/Sao_Paulo";
 
@@ -185,68 +188,69 @@ export async function cidadesDaUf(clienteId: string, f: Filtros, uf: string) {
 
 // ----------------------------------------------------------------- top mídias
 
-export type Nivel = "campanha" | "conjunto" | "anuncio";
-export type OrdemTop = "leads" | "vendas" | "faturamento" | "investido" | "roas";
+type Bruto = Omit<MetricasTop, "roas" | "cpl" | "cpa" | "ctr"> & { id: string; nome: string; campanha_id: string | null };
 
-export type LinhaTop = {
-  id: string;
-  nome: string;
-  investido: number;
-  cliques: number;
-  impressoes: number;
-  leads: number;
-  vendas: number;
-  faturamento: number;
-  roas: number | null;
-  cpl: number | null;
-  anterior: number | null; // valor da métrica de ordenação no período anterior
-};
+/** Restringe o ranking aos filhos de uma campanha ou de um conjunto. */
+export type Dentro = { nivel: "campanha" | "conjunto"; id: string };
 
-async function agregadoTop(clienteId: string, f: Filtros, nivel: Nivel) {
+async function agregadoTop(clienteId: string, f: Filtros, nivel: Nivel, dentro?: Dentro) {
   const col = sql(`${nivel}_id`);
   const colNome = sql(`${nivel}_nome`);
-  return sql<Omit<LinhaTop, "roas" | "cpl" | "anterior">[]>`
+  const utm = sql.unsafe(nivel === "campanha" ? "utm_campaign" : nivel === "conjunto" ? "utm_medium" : "utm_content");
+  const filtroPai = dentro ? sql`and ${sql(`${dentro.nivel}_id`)} = ${dentro.id}` : sql``;
+  return sql<Bruto[]>`
     with m as (
-      select ${col} as id, max(${colNome}) as nome, sum(investido) as investido, sum(cliques) as cliques, sum(impressoes) as impressoes
-      from midia_diaria where cliente_id = ${clienteId} and data between ${f.from}::date and ${f.to}::date ${contextoMidia(f)}
+      select ${col} as id, max(${colNome}) as nome, max(campanha_id) as campanha_id,
+             sum(investido) as investido, sum(cliques) as cliques, sum(impressoes) as impressoes
+      from midia_diaria where cliente_id = ${clienteId} and data between ${f.from}::date and ${f.to}::date ${contextoMidia(f)} ${filtroPai}
       group by 1
     ),
     v as (
-      select ${col} as id, count(*) as vendas, sum(valor) as faturamento, max(utm_${sql.unsafe(nivel === "campanha" ? "campaign" : nivel === "conjunto" ? "medium" : "content")}) as utm
+      select ${col} as id, count(*) as vendas, sum(valor) as faturamento, max(${utm}) as utm
       from vendas where cliente_id = ${clienteId} and status = 'aprovada' and ${col} is not null
-        and ${noPeriodo("aprovado_em", f)} ${contextoVendas(f)}
+        and ${noPeriodo("aprovado_em", f)} ${contextoVendas(f)} ${filtroPai}
       group by 1
     ),
     l as (
-      select ${col} as id, count(*) as leads, max(utm_${sql.unsafe(nivel === "campanha" ? "campaign" : nivel === "conjunto" ? "medium" : "content")}) as utm
-      from leads where cliente_id = ${clienteId} and ${col} is not null and ${noPeriodo("criado_em", f)}
+      select ${col} as id, count(*) as leads, max(${utm}) as utm
+      from leads where cliente_id = ${clienteId} and ${col} is not null and ${noPeriodo("criado_em", f)} ${filtroPai}
       group by 1
     )
     select coalesce(m.id, v.id, l.id) as id,
            coalesce(m.nome, regexp_replace(coalesce(v.utm, l.utm), '\\|\\s*\\d+\\s*$', ''), coalesce(m.id, v.id, l.id)) as nome,
+           m.campanha_id,
            coalesce(m.investido, 0)::float as investido, coalesce(m.cliques, 0)::int as cliques,
            coalesce(m.impressoes, 0)::int as impressoes, coalesce(l.leads, 0)::int as leads,
            coalesce(v.vendas, 0)::int as vendas, coalesce(v.faturamento, 0)::float as faturamento
     from m full outer join v on v.id = m.id full outer join l on l.id = coalesce(m.id, v.id)`;
 }
 
-const valorOrdem = (r: Omit<LinhaTop, "anterior">, o: OrdemTop) =>
-  o === "roas" ? r.roas ?? 0 : (r[o] as number);
-
-export async function topMidias(clienteId: string, f: Filtros, nivel: Nivel, ordem: OrdemTop, limite: number) {
-  const [atual, antes] = await Promise.all([agregadoTop(clienteId, f, nivel), agregadoTop(clienteId, periodoAnterior(f), nivel)]);
-  const completar = (r: Omit<LinhaTop, "roas" | "cpl" | "anterior">) => ({
-    ...r,
+function metricas(r: Omit<MetricasTop, "roas" | "cpl" | "cpa" | "ctr">): MetricasTop {
+  return {
+    investido: r.investido,
+    cliques: r.cliques,
+    impressoes: r.impressoes,
+    leads: r.leads,
+    vendas: r.vendas,
+    faturamento: r.faturamento,
     roas: r.investido > 0 ? r.faturamento / r.investido : null,
     cpl: r.leads > 0 && r.investido > 0 ? r.investido / r.leads : null,
-  });
-  const mapaAntes = new Map(antes.map((r) => [r.id, valorOrdem(completar(r), ordem)]));
+    cpa: r.vendas > 0 && r.investido > 0 ? r.investido / r.vendas : null,
+    ctr: r.impressoes > 0 ? r.cliques / r.impressoes : null,
+  };
+}
+
+export const valorTop = (r: MetricasTop, o: OrdemTop): number | null => r[o];
+
+export async function topMidias(clienteId: string, f: Filtros, nivel: Nivel, ordem: OrdemTop, limite: number, dentro?: Dentro): Promise<LinhaTop[]> {
+  const [atual, antes] = await Promise.all([agregadoTop(clienteId, f, nivel, dentro), agregadoTop(clienteId, periodoAnterior(f), nivel, dentro)]);
+  const mapaAntes = new Map(antes.map((r) => [r.id, metricas(r)]));
+  const crescente = MENOR_MELHOR_TOP.has(ordem);
   return atual
-    .map(completar)
-    .filter((r) => valorOrdem(r, ordem) > 0)
-    .sort((a, b) => valorOrdem(b, ordem) - valorOrdem(a, ordem))
-    .slice(0, limite)
-    .map((r) => ({ ...r, anterior: mapaAntes.get(r.id) ?? null }));
+    .map((r) => ({ id: r.id, nome: r.nome, campanha_id: r.campanha_id, ...metricas(r), anterior: mapaAntes.get(r.id) ?? null }))
+    .filter((r) => (valorTop(r, ordem) ?? 0) > 0)
+    .sort((a, b) => (crescente ? valorTop(a, ordem)! - valorTop(b, ordem)! : valorTop(b, ordem)! - valorTop(a, ordem)!))
+    .slice(0, limite);
 }
 
 // ----------------------------------------------------------------- metas

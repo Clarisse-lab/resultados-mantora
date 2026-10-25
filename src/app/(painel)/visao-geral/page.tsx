@@ -22,12 +22,15 @@ export default async function VisaoGeral({ searchParams }: { searchParams: Busca
   if (!atual) return (<>{barra}<SemCliente equipe={sessao.papel === "equipe"} /></>);
 
   const nivel = (["campanha", "conjunto", "anuncio"] as const).find((n) => n === sp.nivel) ?? "campanha";
-  const ordem = (["leads", "vendas", "faturamento", "investido", "roas"] as const).find((o) => o === sp.ordem) ?? "faturamento";
+  const ORDENS = ["leads", "vendas", "faturamento", "investido", "roas", "cpl", "cpa", "ctr", "impressoes", "cliques"] as const;
+  const ordemPedida = ORDENS.find((o) => o === sp.ordem);
   const limite = [10, 20, 50].find((n) => String(n) === sp.top) ?? 10;
 
-  const [dados, top] = await Promise.all([visaoGeral(atual.id, f), topMidias(atual.id, f, nivel as Nivel, ordem as OrdemTop, limite)]);
+  const dados = await visaoGeral(atual.id, f);
+  // Sem vendas no período, ordenar por faturamento deixaria o ranking vazio: começa pelo investimento
+  const ordem: OrdemTop = ordemPedida ?? (dados.totais.vendas > 0 ? "faturamento" : "investido");
+  const top = await topMidias(atual.id, f, nivel as Nivel, ordem, limite);
   const ant = periodoAnterior(f);
-  const parametros = Object.fromEntries(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string"));
 
   return (
     <>
@@ -58,7 +61,7 @@ export default async function VisaoGeral({ searchParams }: { searchParams: Busca
 
         <section id="top-midias" className="cartao scroll-mt-24 p-5" aria-label="Top mídias do período">
           <h2 className="mb-4 text-lg font-semibold">Top mídias</h2>
-          <TopMidias linhas={top} nivel={nivel} ordem={ordem} limite={limite} parametros={parametros} periodoAnterior={`${fmtDiaCurto(ant.from)} a ${fmtDiaCurto(ant.to)}`} />
+          <TopMidias linhas={top} nivel={nivel} ordem={ordem} limite={limite} periodoAnterior={`${fmtDiaCurto(ant.from)} a ${fmtDiaCurto(ant.to)}`} />
         </section>
       </main>
     </>
