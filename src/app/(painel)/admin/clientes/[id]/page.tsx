@@ -5,10 +5,11 @@ import { exigirEquipe } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { fmtDataHora } from "@/lib/formato";
 import {
-  atualizarIntegracao, criarIntegracao, criarUsuario, excluirIntegracao, removerAcesso,
+  atualizarIntegracao, conectarContaMeta, criarIntegracao, criarUsuario, excluirIntegracao, removerAcesso,
   reprocessarEventos, salvarCliente, salvarMetas, sincronizarAgora,
 } from "../../acoes";
 import { CopiarTexto } from "@/components/CopiarTexto";
+import { contasDeAnuncio, infoTokenGlobal, type ContaAnuncio } from "@/lib/integracoes/meta-token";
 
 export const dynamic = "force-dynamic";
 
@@ -35,9 +36,9 @@ const AJUDA: Record<string, { titulo: string; segredo?: string; conta?: string; 
   },
   meta_ads: {
     titulo: "Meta Ads",
-    segredo: "Access token com permissão ads_read",
+    segredo: "Token próprio (opcional; vazio = usa o token da Mantora)",
     conta: "ID da conta de anúncio (act_…)",
-    passos: "Business Manager → Usuários do sistema → gere um token com ads_read e acesso à conta de anúncio. Os dados são puxados de hora em hora; use “Sincronizar agora” para trazer o histórico.",
+    passos: "Usa o token da Meta da Mantora (Admin → Token da Meta). Os dados são puxados de hora em hora; use “Sincronizar agora” para trazer 90 dias de histórico.",
   },
   captura_leads: {
     titulo: "Captura de leads",
@@ -71,6 +72,18 @@ export default async function ClienteDetalhe({ params }: { params: Promise<{ id:
     sql<{ kpi: string; valor: number }[]>`
       select kpi, valor from metas where cliente_id = ${id} and mes = date_trunc('month', now() at time zone 'America/Sao_Paulo')::date`,
   ]);
+
+  const tokenMeta = await infoTokenGlobal();
+  let contasMeta: ContaAnuncio[] = [];
+  let erroMeta: string | null = null;
+  if (tokenMeta) {
+    try {
+      contasMeta = await contasDeAnuncio();
+    } catch (e) {
+      erroMeta = e instanceof Error ? e.message : "Erro ao listar as contas de anúncio.";
+    }
+  }
+  const contasLigadas = new Set(integracoes.filter((i) => i.tipo === "meta_ads").map((i) => i.conta_id));
 
   const h = await headers();
   const base = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`;
@@ -181,6 +194,35 @@ export default async function ClienteDetalhe({ params }: { params: Promise<{ id:
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-5 border-t border-borda pt-5">
+          <p className="rotulo mb-2">Conectar conta de anúncio da Meta</p>
+          {!tokenMeta ? (
+            <p className="text-sm text-texto-3">
+              Cadastre primeiro o token da Mantora em{" "}
+              <Link href="/admin/meta" className="text-marca underline underline-offset-2">Admin → Token da Meta</Link>.
+            </p>
+          ) : erroMeta ? (
+            <p className="text-sm text-perigo">{erroMeta}</p>
+          ) : (
+            <form action={conectarContaMeta} className="flex flex-wrap gap-2">
+              <input type="hidden" name="cliente_id" value={cliente.id} />
+              <select name="conta" required className="controle min-w-0 flex-1" aria-label="Conta de anúncio" defaultValue="">
+                <option value="" disabled>
+                  Escolha a conta de anúncio ({contasMeta.length} disponíveis)
+                </option>
+                {contasMeta.map((c) => (
+                  <option key={c.id} value={`${c.id}|${c.nome}`} disabled={contasLigadas.has(c.id)}>
+                    {c.nome}
+                    {c.negocio ? ` · ${c.negocio}` : ""} · {c.id}
+                    {contasLigadas.has(c.id) ? " (já conectada)" : ""}
+                  </option>
+                ))}
+              </select>
+              <button className="botao">Conectar e trazer 30 dias</button>
+            </form>
+          )}
         </div>
 
         <form action={criarIntegracao} className="mt-5 grid gap-2 border-t border-borda pt-5 sm:grid-cols-[auto_1fr_1fr_auto]">

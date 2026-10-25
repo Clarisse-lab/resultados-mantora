@@ -1,9 +1,10 @@
 import { sql } from "../db";
 import { contextoPorNome } from "../atribuicao";
 import { decifrar } from "../cripto";
+import { mensagemErro, tokenGlobal } from "./meta-token";
 
 // Sincroniza a Meta Ads Insights por anúncio e por dia.
-// Precisa de um token com permissão ads_read (de preferência de usuário do sistema do Business Manager).
+// Usa o token próprio da integração ou, se não houver, o token da Meta da Mantora (ads_read).
 
 type Linha = {
   date_start: string;
@@ -43,8 +44,8 @@ export async function buscarInsights(contaId: string, token: string, de: string,
   const linhas: Linha[] = [];
   while (url) {
     const r: Response = await fetch(url, { cache: "no-store" });
-    const j = (await r.json()) as { data?: Linha[]; paging?: { next?: string }; error?: { message: string } };
-    if (!r.ok || j.error) throw new Error(`Meta: ${j.error?.message ?? r.statusText}`);
+    const j = (await r.json()) as { data?: Linha[]; paging?: { next?: string }; error?: { message: string; code?: number } };
+    if (!r.ok || j.error) throw new Error(mensagemErro(j.error ?? { message: r.statusText }));
     linhas.push(...(j.data ?? []));
     url = j.paging?.next ?? null;
   }
@@ -54,7 +55,9 @@ export async function buscarInsights(contaId: string, token: string, de: string,
 export async function sincronizarMeta(integracaoId: string, dias = 7) {
   const [i] = await sql<{ id: string; cliente_id: string; segredo: string | null; conta_id: string | null }[]>`
     select id, cliente_id, segredo, conta_id from integracoes where id = ${integracaoId} and tipo = 'meta_ads' and ativo`;
-  if (!i?.segredo || !i.conta_id) throw new Error("integração Meta sem token ou conta");
+  if (!i?.conta_id) throw new Error("integração Meta sem conta de anúncio");
+  const token = decifrar(i.segredo) ?? (await tokenGlobal());
+  if (!token) throw new Error("Sem token da Meta: cadastre o token da Mantora em Admin → Token da Meta.");
   const [c] = await sql<{ palavras_lancamento: string[] }[]>`select palavras_lancamento from clientes where id = ${i.cliente_id}`;
 
   const ate = new Date();
@@ -62,7 +65,7 @@ export async function sincronizarMeta(integracaoId: string, dias = 7) {
   const fmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
   try {
-    const linhas = await buscarInsights(i.conta_id, decifrar(i.segredo)!, fmt(de), fmt(ate));
+    const linhas = await buscarInsights(i.conta_id, token, fmt(de), fmt(ate));
     for (let k = 0; k < linhas.length; k += 200) {
       const lote = linhas.slice(k, k + 200).map((l) => ({
         cliente_id: i.cliente_id,

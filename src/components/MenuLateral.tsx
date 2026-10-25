@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BarChart3, Building2, KanbanSquare, LogOut, Menu, Receipt, TrendingUp, X } from "lucide-react";
+import { BarChart3, Building2, KanbanSquare, KeyRound, LogOut, Menu, Receipt, TrendingUp, X } from "lucide-react";
 import { useState } from "react";
 import { Marca } from "./Marca";
 
@@ -30,7 +30,12 @@ export function MenuLateral({ email, equipe, clientes, clienteAtual }: Props) {
     { href: "/vendas", rotulo: "Vendas detalhadas", icone: Receipt, comFiltro: true },
     { href: "/comercial", rotulo: "Kanban comercial", icone: KanbanSquare, comFiltro: true, exato: true },
     { href: "/comercial/ascensao", rotulo: "LTV Ascensão", icone: TrendingUp, comFiltro: false },
-    ...(equipe ? [{ href: "/admin/clientes", rotulo: "Clientes e integrações", icone: Building2, comFiltro: false }] : []),
+    ...(equipe
+      ? [
+          { href: "/admin/clientes", rotulo: "Clientes e integrações", icone: Building2, comFiltro: false },
+          { href: "/admin/meta", rotulo: "Token da Meta", icone: KeyRound, comFiltro: false },
+        ]
+      : []),
   ];
 
   const conteudo = (

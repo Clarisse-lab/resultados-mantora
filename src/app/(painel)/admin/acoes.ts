@@ -9,6 +9,7 @@ import { reprocessar } from "@/lib/integracoes/ingestao";
 import { sincronizarMeta } from "@/lib/integracoes/meta-ads";
 import { criarEtapasPadrao } from "@/lib/comercial";
 import { cifrar } from "@/lib/cripto";
+import { removerTokenGlobal, salvarTokenGlobal } from "@/lib/integracoes/meta-token";
 
 const txt = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const slugDe = (nome: string) =>
@@ -135,5 +136,41 @@ export async function removerAcesso(f: FormData) {
   await exigirEquipe();
   const cliente = txt(f, "cliente_id");
   await sql`delete from usuarios_clientes where usuario_id = ${txt(f, "usuario_id")} and cliente_id = ${cliente}`;
+  revalidatePath(`/admin/clientes/${cliente}`);
+}
+
+export async function salvarTokenMeta(_estado: { erro?: string; ok?: string } | null, f: FormData) {
+  await exigirEquipe();
+  const token = txt(f, "token").replace(/\s+/g, "");
+  if (token.length < 50) return { erro: "Cole o token completo (começa com EAA…)." };
+  try {
+    const info = await salvarTokenGlobal(token);
+    revalidatePath("/admin/meta");
+    return { ok: `Token de ${info.nome ?? "usuário"} salvo.` };
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : "Não foi possível validar o token." };
+  }
+}
+
+export async function removerTokenMeta() {
+  await exigirEquipe();
+  await removerTokenGlobal();
+  revalidatePath("/admin/meta");
+}
+
+/** Liga uma conta de anúncio (vista pelo token da Mantora) a um cliente e já traz 30 dias. */
+export async function conectarContaMeta(f: FormData) {
+  await exigirEquipe();
+  const cliente = txt(f, "cliente_id");
+  const [conta, ...nome] = txt(f, "conta").split("|");
+  if (!/^\d{5,25}$/.test(conta)) return;
+  const [i] = await sql<{ id: string }[]>`
+    insert into integracoes (cliente_id, tipo, nome, conta_id)
+    values (${cliente}, 'meta_ads', ${nome.join("|") || "Meta Ads"}, ${conta}) returning id`;
+  try {
+    await sincronizarMeta(i.id, 30);
+  } catch {
+    // erro fica registrado na integração e aparece na tela
+  }
   revalidatePath(`/admin/clientes/${cliente}`);
 }
