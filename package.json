@@ -1,0 +1,43 @@
+{
+  "name": "resultados-mantora",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start -p ${PORT:-3000}",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "usuario:criar": "tsx scripts/criar-usuario.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "d3-geo": "^3.1.1",
+    "jose": "^5.10.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.28",
+    "postgres": "^3.4.9",
+    "react": "^19.1.10",
+    "react-dom": "^19.1.10",
+    "recharts": "^2.15.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/d3-geo": "^3.1.1",
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+/*
+  Cores da marca: troque só este bloco quando chegarem os hex do Mantora.
+  --marca é a cor de destaque (botões, item ativo, barras de faturamento);
+  --marca-2 é a cor secundária (linha do ROAS, comparativos).
+*/
+:root {
+  --marca: #7c5cff;
+  --marca-forte: #6a48f5;
+  --marca-suave: color-mix(in srgb, var(--marca) 16%, transparent);
+  --marca-2: #2dd4bf;
+
+  --fundo: #0b0d14;
+  --superficie: #12151f;
+  --superficie-2: #191d2a;
+  --borda: #262b3b;
+  --borda-forte: #353b50;
+  --texto: #eef0f6;
+  --texto-2: #b3b8c8;
+  --texto-3: #7d8397;
+  --neutro-barra: #5b6177;
+
+  --sucesso: #34c58a;
+  --alerta: #e8b04a;
+  --perigo: #ef6f6c;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-marca: var(--marca);
+  --color-marca-forte: var(--marca-forte);
+  --color-marca-suave: var(--marca-suave);
+  --color-marca-2: var(--marca-2);
+  --color-fundo: var(--fundo);
+  --color-superficie: var(--superficie);
+  --color-superficie-2: var(--superficie-2);
+  --color-borda: var(--borda);
+  --color-borda-forte: var(--borda-forte);
+  --color-texto: var(--texto);
+  --color-texto-2: var(--texto-2);
+  --color-texto-3: var(--texto-3);
+  --color-sucesso: var(--sucesso);
+  --color-alerta: var(--alerta);
+  --color-perigo: var(--perigo);
+  --font-sans: var(--fonte-texto), system-ui, sans-serif;
+  --font-mono: var(--fonte-numeros), ui-monospace, monospace;
+}
+
+html,
+body {
+  background: var(--fundo);
+  color: var(--texto);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Em @layer components para que utilitários (pl-8, w-64...) possam sobrescrever */
+@layer components {
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.cartao {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+}
+
+.rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+
+.controle {
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--borda);
+  background: var(--superficie-2);
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--texto);
+}
+.controle:hover {
+  border-color: var(--borda-forte);
+}
+.controle:focus-visible {
+  outline: 2px solid var(--marca);
+  outline-offset: 1px;
+}
+
+.botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--marca);
+  color: #fff;
+}
+.botao:hover {
+  background: var(--marca-forte);
+}
+.botao-sec {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--borda);
+  background: var(--superficie-2);
+  color: var(--texto-2);
+}
+.botao-sec:hover {
+  color: var(--texto);
+  border-color: var(--borda-forte);
+}
+
+.tabela th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--texto-3);
+  text-align: left;
+  padding: 10px 12px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--superficie);
+}
+.tabela td {
+  font-size: 13px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--borda);
+  white-space: nowrap;
+}
+.tabela tbody tr:hover td {
+  background: var(--superficie-2);
+}
+}
+
+@keyframes subir {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.entrar {
+  animation: subir 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .entrar {
+    animation: none;
+  }
+}
