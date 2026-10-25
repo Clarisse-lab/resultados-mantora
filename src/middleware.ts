@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE_SESSAO, lerSessao } from "./lib/sessao-token";
 
 // Rotas públicas: login e os endpoints que as plataformas chamam (protegidos por token próprio).
-const PUBLICAS = [/^\/login/, /^\/api\/auth\//, /^\/api\/webhooks\//, /^\/api\/captura\//, /^\/api\/cron\//, /^\/api\/saude/];
+const PUBLICAS = [/^\/login/, /^\/setup$/, /^\/api\/setup$/, /^\/api\/auth\//, /^\/api\/webhooks\//, /^\/api\/captura\//, /^\/api\/cron\//, /^\/api\/saude/];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
