@@ -7,7 +7,7 @@ import { Marca } from "@/components/Marca";
 function Formulario() {
   const router = useRouter();
   const volta = useSearchParams().get("volta");
-  const destino = volta && volta.startsWith("/") && !volta.startsWith("//") ? volta : "/visao-geral";
+  const destino = volta && volta.startsWith("/") && !volta.startsWith("//") ? volta : "/";
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 

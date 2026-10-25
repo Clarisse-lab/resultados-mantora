@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 import { useTransition } from "react";
+import { SeletorCliente } from "./SeletorCliente";
 
 const hoje = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 const menos = (data: string, dias: number) => {
@@ -29,9 +30,10 @@ type Props = {
   extra?: React.ReactNode;
   semRecorte?: boolean; // leads não se separam por perpétuo/lançamento
   semPeriodo?: boolean;
+  semCliente?: boolean; // telas que não são de um cliente só (ex.: Todos os clientes)
 };
 
-export function BarraFiltros({ from, to, recorte, categoria, granularidade, titulo, extra, semRecorte, semPeriodo }: Props) {
+export function BarraFiltros({ from, to, recorte, categoria, granularidade, titulo, extra, semRecorte, semPeriodo, semCliente }: Props) {
   const router = useRouter();
   const caminho = usePathname();
   const busca = useSearchParams();
@@ -48,7 +50,10 @@ export function BarraFiltros({ from, to, recorte, categoria, granularidade, titu
   return (
     <header className="sticky top-0 z-20 border-b border-borda bg-fundo/85 backdrop-blur">
       <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2 px-4 py-3 pl-16 lg:px-8">
-        <h1 className="mr-auto text-xl font-semibold tracking-tight">{titulo}</h1>
+        <div className="mr-auto flex min-w-0 flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold tracking-tight">{titulo}</h1>
+          {!semCliente && <SeletorCliente />}
+        </div>
         {carregando && <span className="text-xs text-texto-3">Atualizando…</span>}
         {!semPeriodo && (<>
         <label className="relative">

@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BarChart3, Building2, KanbanSquare, KeyRound, LogOut, Menu, Receipt, TrendingUp, X } from "lucide-react";
+import { BarChart3, Building2, KanbanSquare, KeyRound, LayoutGrid, LogOut, Menu, Receipt, TrendingUp, X } from "lucide-react";
 import { useState } from "react";
 import { Marca } from "./Marca";
 
 type Props = {
   email: string;
   equipe: boolean;
-  clientes: { id: string; nome: string }[];
-  clienteAtual: string | null;
+  variosClientes: boolean;
 };
 
-export function MenuLateral({ email, equipe, clientes, clienteAtual }: Props) {
+export function MenuLateral({ email, equipe, variosClientes }: Props) {
   const caminho = usePathname();
   const busca = useSearchParams();
   const [aberto, setAberto] = useState(false);
@@ -26,6 +25,7 @@ export function MenuLateral({ email, equipe, clientes, clienteAtual }: Props) {
   const q = periodo.toString() ? `?${periodo}` : "";
 
   const itens = [
+    ...(equipe || variosClientes ? [{ href: "/clientes", rotulo: "Todos os clientes", icone: LayoutGrid, comFiltro: true }] : []),
     { href: "/visao-geral", rotulo: "Visão geral", icone: BarChart3, comFiltro: true },
     { href: "/vendas", rotulo: "Vendas detalhadas", icone: Receipt, comFiltro: true },
     { href: "/comercial", rotulo: "Kanban comercial", icone: KanbanSquare, comFiltro: true, exato: true },
@@ -46,25 +46,6 @@ export function MenuLateral({ email, equipe, clientes, clienteAtual }: Props) {
           <X size={20} />
         </button>
       </div>
-
-      {clientes.length > 1 && (
-        <form action="/api/cliente" method="post" className="px-4 pb-3">
-          <input type="hidden" name="volta" value={caminho + (busca.toString() ? `?${busca}` : "")} />
-          <label className="rotulo mb-1.5 block">Cliente</label>
-          <select
-            name="cliente"
-            defaultValue={clienteAtual ?? undefined}
-            onChange={(e) => e.currentTarget.form?.requestSubmit()}
-            className="controle w-full"
-          >
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
-        </form>
-      )}
 
       <nav className="flex-1 space-y-0.5 px-3 pt-2" aria-label="Navegação principal">
         <p className="rotulo px-2 pb-2">Painel</p>
