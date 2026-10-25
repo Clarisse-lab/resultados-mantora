@@ -12,6 +12,18 @@ const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
 const sql = postgres(url, { ssl: local ? false : "require", max: 1, prepare: !url.includes(":6543"), onnotice: () => {} });
 const pasta = path.join(process.cwd(), "db/migrations");
 
+// Depois de um reinício, o Postgres pode levar alguns segundos para aceitar conexões
+for (let tentativa = 1; ; tentativa++) {
+  try {
+    await sql`select 1`;
+    break;
+  } catch (e) {
+    if (tentativa >= 20) throw e;
+    console.log(`banco ainda indisponível (${e.code ?? e.message}), nova tentativa em 3s…`);
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+}
+
 await sql`create table if not exists schema_migrations (nome text primary key, aplicada_em timestamptz not null default now())`;
 const feitas = new Set((await sql`select nome from schema_migrations`).map((r) => r.nome));
 for (const arquivo of (await readdir(pasta)).filter((f) => f.endsWith(".sql")).sort()) {
