@@ -57,7 +57,8 @@ export default async function ClienteDetalhe({ params }: { params: Promise<{ id:
     sql<Integracao[]>`
       select i.id, i.tipo, i.nome, i.token, i.conta_id, i.segredo is not null as tem_segredo, i.ativo,
              i.ultimo_evento_em, i.ultima_sync_em, i.ultimo_erro,
-             (select count(*)::int from eventos_webhook e where e.integracao_id = i.id) as eventos,
+             case when i.tipo = 'captura_leads' then (select count(*)::int from leads l where l.integracao_id = i.id)
+                  else (select count(*)::int from eventos_webhook e where e.integracao_id = i.id) end as eventos,
              (select count(*)::int from eventos_webhook e where e.integracao_id = i.id and e.erro is not null) as eventos_erro
       from integracoes i where i.cliente_id = ${id} order by i.criado_em`,
     sql<{ id: number; recebido_em: Date; tipo_evento: string | null; erro: string | null; processado: boolean; integracao: string }[]>`

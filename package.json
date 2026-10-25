@@ -9,7 +9,7 @@
     "start": "next start -p ${PORT:-3000}",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "tsx scripts/seed.ts",
     "usuario:criar": "tsx scripts/criar-usuario.ts"
   },
