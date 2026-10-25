@@ -13,6 +13,7 @@ export type Criativo = {
   titulo: string | null;
   texto: string | null;
   link: string | null; // prévia compartilhável ou o anúncio no gerenciador
+  gerenciador?: string | null; // o anúncio no Gerenciador de Anúncios da Meta
 };
 
 const CACHE_HORAS = 6;
@@ -93,6 +94,7 @@ export async function criativoDoAnuncio(clienteId: string, anuncioId: string): P
       }
     }
     const contaId = ad.account_id ?? conta;
+    const gerenciador = contaId ? `https://www.facebook.com/adsmanager/manage/ads?act=${contaId}&selected_ad_ids=${ad.id}` : null;
     return {
       id: ad.id,
       nome: ad.name ?? null,
@@ -101,9 +103,8 @@ export async function criativoDoAnuncio(clienteId: string, anuncioId: string): P
       video: Boolean(c.video_id),
       titulo: c.title ?? spec?.link_data?.name ?? spec?.video_data?.title ?? null,
       texto: c.body ?? spec?.link_data?.message ?? spec?.video_data?.message ?? null,
-      link:
-        ad.preview_shareable_link ??
-        (contaId ? `https://www.facebook.com/adsmanager/manage/ads?act=${contaId}&selected_ad_ids=${ad.id}` : null),
+      link: ad.preview_shareable_link ?? gerenciador,
+      gerenciador,
     };
   });
 }

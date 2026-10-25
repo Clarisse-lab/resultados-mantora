@@ -99,15 +99,17 @@ function Detalhes({ l, ordem }: { l: LinhaTop; ordem: OrdemTop }) {
   );
 }
 
-type Props = { linhas: LinhaTop[]; nivel: Nivel; ordem: OrdemTop; limite: number; periodoAnterior: string };
+type Detalhe = { anuncio: Criativo | null; status: string | null; metricas?: LinhaTop | null; escolhidoPor?: OrdemTop | null; erro?: string };
 
-export function TopMidias({ linhas, nivel, ordem, limite, periodoAnterior }: Props) {
+type Props = { linhas: LinhaTop[]; nivel: Nivel; ordem: OrdemTop; limite: number; periodoAnterior: string; janela: string };
+
+export function TopMidias({ linhas, nivel, ordem, limite, periodoAnterior, janela }: Props) {
   const router = useRouter();
   const caminho = usePathname();
   const busca = useSearchParams();
   const [selecionado, setSelecionado] = useState<string | null>(linhas[0]?.id ?? null);
   const [sobre, setSobre] = useState<string | null>(null);
-  const [detalhe, setDetalhe] = useState<{ anuncio: Criativo | null; status: string | null; erro?: string } | null>(null);
+  const [detalhe, setDetalhe] = useState<Detalhe | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [ampliado, setAmpliado] = useState(false);
   const [semImagem, setSemImagem] = useState(false);
@@ -129,7 +131,7 @@ export function TopMidias({ linhas, nivel, ordem, limite, periodoAnterior }: Pro
     p.set("id", selecionado);
     p.set("ordem", ordem);
     fetch(`/api/midia/detalhe?${p}`)
-      .then(async (r) => ((await r.json()) as { anuncio: Criativo | null; status: string | null; erro?: string }))
+      .then(async (r) => (await r.json()) as Detalhe)
       .then((j) => !cancelado && setDetalhe(j))
       .catch(() => !cancelado && setDetalhe({ anuncio: null, status: null, erro: "Não foi possível carregar o anúncio." }))
       .finally(() => !cancelado && setCarregando(false));
@@ -261,8 +263,14 @@ export function TopMidias({ linhas, nivel, ordem, limite, periodoAnterior }: Pro
                 ) : detalhe?.anuncio?.imagem && !semImagem ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={detalhe.anuncio.imagem} alt={detalhe.anuncio.nome ?? "Criativo do anúncio"} className="h-full w-full object-cover" onError={() => setSemImagem(true)} />
-                    {detalhe.anuncio.video && <PlayCircle size={44} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/85 drop-shadow" />}
+                    <img
+                      src={detalhe.anuncio.imagem}
+                      alt={detalhe.anuncio.nome ?? "Criativo do anúncio"}
+                      className="h-full w-full cursor-zoom-in object-cover"
+                      onClick={() => setAmpliado(true)}
+                      onError={() => setSemImagem(true)}
+                    />
+                    {detalhe.anuncio.video && <PlayCircle size={44} className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/85 drop-shadow" />}
                     <div className="absolute inset-x-2 top-2 flex justify-between gap-2">
                       {detalhe.anuncio.link && (
                         <a href={detalhe.anuncio.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold tracking-wide text-white hover:bg-black/85">
@@ -304,17 +312,120 @@ export function TopMidias({ linhas, nivel, ordem, limite, periodoAnterior }: Pro
         </div>
       )}
 
-      {ampliado && detalhe?.anuncio?.imagem && (
-        <Portal>
-          <div className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-6" onClick={() => setAmpliado(false)} role="dialog" aria-label="Criativo ampliado">
-            <button className="absolute right-5 top-5 text-white/80 hover:text-white" aria-label="Fechar">
-              <X size={24} />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={detalhe.anuncio.imagem} alt={detalhe.anuncio.nome ?? "Criativo"} className="max-h-full max-w-full rounded-lg object-contain" />
-          </div>
-        </Portal>
+      {ampliado && sel && detalhe?.anuncio && (
+        <ModalAnuncio
+          item={sel}
+          nivel={nivel}
+          anuncio={detalhe.anuncio}
+          metricasAnuncio={nivel === "anuncio" ? sel : detalhe.metricas ?? null}
+          escolhidoPor={detalhe.escolhidoPor ?? null}
+          janela={janela}
+          onFechar={() => setAmpliado(false)}
+        />
       )}
     </div>
+  );
+}
+
+// Métricas que se somam: faz sentido mostrar quanto do total da campanha/conjunto veio do anúncio
+const SOMAVEIS = new Set<OrdemTop>(["leads", "investido", "vendas", "faturamento", "impressoes", "cliques"]);
+const ORDEM_TABELA: OrdemTop[] = ["leads", "investido", "vendas", "faturamento", "impressoes", "cliques", "cpl", "cpa", "roas", "ctr"];
+
+function ModalAnuncio({
+  item, nivel, anuncio, metricasAnuncio, escolhidoPor, janela, onFechar,
+}: {
+  item: LinhaTop;
+  nivel: Nivel;
+  anuncio: Criativo;
+  metricasAnuncio: LinhaTop | null;
+  escolhidoPor: OrdemTop | null;
+  janela: string;
+  onFechar: () => void;
+}) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onFechar();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [onFechar]);
+  const grupo = nivel !== "anuncio";
+  const n = NIVEIS.find((x) => x.k === nivel)!;
+  const linhaInfo = (r: string, v: React.ReactNode) => (
+    <div className="grid grid-cols-[8rem_1fr] gap-3 py-1 text-sm">
+      <span className="rotulo !text-[11px]">{r}</span>
+      <span className="break-words">{v}</span>
+    </div>
+  );
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" onClick={onFechar} role="dialog" aria-label={`Detalhes de ${item.nome}`}>
+        <div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-borda-forte bg-superficie shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <header className="flex items-start justify-between gap-4 border-b border-borda px-5 py-4">
+            <h3 className="break-words text-lg font-semibold">{item.nome}</h3>
+            <button onClick={onFechar} aria-label="Fechar" className="text-texto-3 hover:text-texto">
+              <X size={20} />
+            </button>
+          </header>
+          <div className="grid flex-1 gap-5 overflow-y-auto p-5 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+            <div>
+              {anuncio.imagem ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={anuncio.imagem} alt={anuncio.nome ?? "Criativo"} className="w-full rounded-xl border border-borda object-contain" />
+              ) : (
+                <div className="grid aspect-[4/5] place-items-center rounded-xl border border-borda text-xs text-texto-3">Sem imagem</div>
+              )}
+              {(anuncio.titulo || anuncio.texto) && (
+                <div className="mt-4">
+                  <p className="rotulo !text-[11px]">Copy do anúncio</p>
+                  {anuncio.titulo && <p className="mt-1 font-semibold">{anuncio.titulo}</p>}
+                  {anuncio.texto && <p className="mt-1 whitespace-pre-line text-sm text-texto-2">{anuncio.texto}</p>}
+                </div>
+              )}
+            </div>
+            <div>
+              {linhaInfo("Anúncio", <span className="num">{anuncio.id}</span>)}
+              {grupo && escolhidoPor && linhaInfo("Escolhido por", `Mais ${metrica(escolhidoPor).rotulo.toLowerCase()} ${n.artigo}`)}
+              {linhaInfo("Janela", janela)}
+              <table className="tabela mt-4 w-full">
+                <thead>
+                  <tr>
+                    <th>Métrica</th>
+                    {grupo && <th className="!text-right">{n.singular}</th>}
+                    <th className="!text-right">Este anúncio</th>
+                    {grupo && <th className="!text-right">% d{nivel === "campanha" ? "a" : "o"} {n.singular.toLowerCase()}</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ORDEM_TABELA.map((k) => {
+                    const doAnuncio = grupo ? metricasAnuncio?.[k] ?? null : item[k];
+                    const total = item[k];
+                    const parte = grupo && SOMAVEIS.has(k) && total && doAnuncio != null ? doAnuncio / total : null;
+                    return (
+                      <tr key={k} className={k === escolhidoPor ? "font-semibold" : ""}>
+                        <td>{metrica(k).rotulo}</td>
+                        {grupo && <td className="num text-right">{metrica(k).fmt(total)}</td>}
+                        <td className="num text-right">{metrica(k).fmt(doAnuncio)}</td>
+                        {grupo && <td className="num text-right text-texto-2">{parte != null ? fmtPct(parte) : ""}</td>}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <footer className="flex flex-wrap gap-2 border-t border-borda px-5 py-3">
+            {anuncio.link && (
+              <a href={anuncio.link} target="_blank" rel="noreferrer" className="botao-sec text-[12px] font-semibold tracking-wide">
+                VER ANÚNCIO <ExternalLink size={12} />
+              </a>
+            )}
+            {anuncio.gerenciador && anuncio.gerenciador !== anuncio.link && (
+              <a href={anuncio.gerenciador} target="_blank" rel="noreferrer" className="botao-sec text-[12px] font-semibold tracking-wide">
+                ABRIR NO GERENCIADOR DA META <ExternalLink size={12} />
+              </a>
+            )}
+          </footer>
+        </div>
+      </div>
+    </Portal>
   );
 }

@@ -61,7 +61,7 @@ export default async function VisaoGeral({ searchParams }: { searchParams: Busca
 
         <section id="top-midias" className="cartao scroll-mt-24 p-5" aria-label="Top mídias do período">
           <h2 className="mb-4 text-lg font-semibold">Top mídias</h2>
-          <TopMidias linhas={top} nivel={nivel} ordem={ordem} limite={limite} periodoAnterior={`${fmtDiaCurto(ant.from)} a ${fmtDiaCurto(ant.to)}`} />
+          <TopMidias linhas={top} nivel={nivel} ordem={ordem} limite={limite} periodoAnterior={`${fmtDiaCurto(ant.from)} a ${fmtDiaCurto(ant.to)}`} janela={`${fmtDiaCurto(f.from)}–${fmtDiaCurto(f.to)}`} />
         </section>
       </main>
     </>

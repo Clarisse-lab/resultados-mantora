@@ -23,16 +23,20 @@ export async function GET(req: Request) {
   try {
     let anuncioId = id;
     let status: string | null = null;
+    let melhorPor: OrdemTop | null = null;
+    let metricas: Awaited<ReturnType<typeof topMidias>>[number] | null = null;
     if (nivel !== "anuncio") {
       const dentro = { nivel, id } as const;
       const [melhor] = await topMidias(atual.id, f, "anuncio", ordem, 1, dentro);
+      melhorPor = melhor ? ordem : "investido";
       const [porGasto] = melhor ? [melhor] : await topMidias(atual.id, f, "anuncio", "investido", 1, dentro);
       if (!porGasto) return NextResponse.json({ anuncio: null, status: await statusDoObjeto(atual.id, id) });
       anuncioId = porGasto.id;
+      metricas = porGasto;
       status = await statusDoObjeto(atual.id, id);
     }
     const criativo = await criativoDoAnuncio(atual.id, anuncioId);
-    return NextResponse.json({ anuncio: criativo, status: status ?? criativo.status });
+    return NextResponse.json({ anuncio: criativo, status: status ?? criativo.status, metricas, escolhidoPor: metricas ? (melhorPor ?? null) : null });
   } catch (e) {
     return NextResponse.json({ erro: e instanceof Error ? e.message : "Não foi possível carregar o anúncio." }, { status: 502 });
   }
