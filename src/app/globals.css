@@ -48,6 +48,12 @@
   --font-mono: var(--fonte-numeros), ui-monospace, monospace;
 }
 
+/* Lista aberta dos <select>: o Chrome no Windows herda o fundo do campo e pode ficar ilegível */
+select option {
+  background-color: var(--superficie-2);
+  color: var(--texto);
+}
+
 html,
 body {
   background: var(--fundo);

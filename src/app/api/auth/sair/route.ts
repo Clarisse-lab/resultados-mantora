@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { COOKIE_SESSAO } from "@/lib/sessao-token";
+import { redirecionar } from "@/lib/redirecionar";
 
-export async function POST(req: Request) {
-  const res = NextResponse.redirect(new URL("/login", req.url), 303);
+export async function POST() {
+  const res = redirecionar("/login");
   res.cookies.delete(COOKIE_SESSAO);
   return res;
 }

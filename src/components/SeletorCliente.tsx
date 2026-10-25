@@ -26,7 +26,7 @@ export function SeletorCliente() {
         aria-label="Cliente"
         defaultValue={atual ?? undefined}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="controle max-w-[16rem] bg-marca-suave pl-8 font-medium"
+        className="controle max-w-[16rem] border-marca/50 pl-8 font-medium"
       >
         {clientes.map((c) => (
           <option key={c.id} value={c.id}>
