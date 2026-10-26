@@ -13,5 +13,10 @@ export function estrutura(v: unknown, prof = 0): unknown {
     if (/^-?\d+([.,]\d+)?$/.test(v)) return "texto:número";
     return `texto(${v.length})`;
   }
+  // Números com cara de data (epoch em s ou ms): mostra só ano e mês
+  if (typeof v === "number" && v > 1e9 && v < 1e13) {
+    const d = new Date(v < 1e12 ? v * 1000 : v);
+    return `data:${d.toISOString().slice(0, 7)}`;
+  }
   return typeof v;
 }

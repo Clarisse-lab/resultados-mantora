@@ -28,7 +28,7 @@ describe("Hotmart", () => {
   };
 
   it("converte compra aprovada com UTMs dentro do src", () => {
-    const r = normalizar("hotmart", base);
+    const r = normalizar("hotmart", base, new Date(1729780060000));
     expect(r.tipo).toBe("venda");
     if (r.tipo !== "venda") return;
     expect(r.venda).toMatchObject({
@@ -187,5 +187,29 @@ describe("PagTrust (webhook 2.0, formato Hotmart)", () => {
     });
     expect(r.tipo).toBe("checkout");
     if (r.tipo === "checkout") expect(r.checkout).toMatchObject({ id_externo: "c@x.com-1792991515000", telefone: "11987654321", utm_source: "FB", utm_campaign: "camp" });
+  });
+});
+
+describe("datas de exemplo dos eventos de teste", () => {
+  it("usa o momento do recebimento quando a data do evento é de anos atrás", () => {
+    const agora = new Date("2026-10-26T03:48:00Z");
+    const r = normalizar("hotmart", {
+      id: "e",
+      creation_date: 1632411264000,
+      event: "PURCHASE_APPROVED",
+      data: { product: { name: "X" }, buyer: { name: "A" }, purchase: { transaction: "T", approved_date: 1511783346000, order_date: 1511783344000, price: { value: 10 } } },
+    }, agora);
+    expect(r.tipo === "venda" && r.venda.aprovado_em?.toISOString()).toBe(agora.toISOString());
+    expect(r.tipo === "venda" && r.venda.criado_em.toISOString()).toBe(agora.toISOString());
+  });
+
+  it("mantém a data quando é recente", () => {
+    const agora = new Date("2026-10-26T03:48:00Z");
+    const ontem = agora.getTime() - 86400000;
+    const r = normalizar("hotmart", {
+      id: "e", creation_date: ontem, event: "PURCHASE_APPROVED",
+      data: { product: { name: "X" }, buyer: { name: "A" }, purchase: { transaction: "T", approved_date: ontem, order_date: ontem, price: { value: 10 } } },
+    }, agora);
+    expect(r.tipo === "venda" && r.venda.aprovado_em?.getTime()).toBe(ontem);
   });
 });

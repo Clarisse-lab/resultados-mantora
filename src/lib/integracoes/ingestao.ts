@@ -182,10 +182,10 @@ export async function reprocessar(integracaoId: string) {
   // Refaz do zero a partir dos eventos guardados: o que foi gravado com a leitura antiga sai
   await sql`delete from vendas where integracao_id = ${i.id}`;
   await sql`delete from checkouts where integracao_id = ${i.id}`;
-  const eventos = await sql<{ id: number; payload: unknown }[]>`
-    select id, payload from eventos_webhook where integracao_id = ${i.id} order by recebido_em, id`;
+  const eventos = await sql<{ id: number; payload: unknown; recebido_em: Date }[]>`
+    select id, payload, recebido_em from eventos_webhook where integracao_id = ${i.id} order by recebido_em, id`;
   for (const e of eventos) {
-    const r = normalizar(i.tipo as Provedor, e.payload);
+    const r = normalizar(i.tipo as Provedor, e.payload, e.recebido_em);
     await gravar(i, r);
     await sql`update eventos_webhook set processado = true, erro = ${r.tipo === "ignorado" ? r.motivo : null} where id = ${e.id}`;
   }

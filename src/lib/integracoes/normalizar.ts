@@ -387,13 +387,36 @@ function generico(p: Obj): Resultado {
   };
 }
 
-export function normalizar(provedor: Provedor, payload: unknown): Resultado {
-  if (!isObj(payload)) return { tipo: "ignorado", motivo: "payload não é um objeto JSON" };
+function porProvedor(provedor: Provedor, payload: Obj): Resultado {
   if (provedor === "hotmart") return hotmart(payload);
   // A PagTrust (webhook versão 2.0) segue o formato da Hotmart: event + data.purchase/buyer
   if (provedor === "pagtrust" && typeof payload.event === "string" && isObj(payload.data)) return hotmart(payload);
   if (provedor === "kiwify") return kiwify(payload);
   return generico(payload);
+}
+
+const DIA = 86400000;
+
+/**
+ * Eventos de teste das plataformas trazem datas de exemplo (às vezes de anos atrás). Se a data
+ * informada estiver a mais de um ano do recebimento, ou no futuro, vale o momento do recebimento.
+ */
+function dataPlausivel(d: Date | null, recebidoEm: Date): Date | null {
+  if (!d) return d;
+  const dif = recebidoEm.getTime() - d.getTime();
+  return dif > 365 * DIA || dif < -DIA ? recebidoEm : d;
+}
+
+export function normalizar(provedor: Provedor, payload: unknown, recebidoEm: Date = new Date()): Resultado {
+  if (!isObj(payload)) return { tipo: "ignorado", motivo: "payload não é um objeto JSON" };
+  const r = porProvedor(provedor, payload);
+  if (r.tipo === "venda") {
+    r.venda.criado_em = dataPlausivel(r.venda.criado_em, recebidoEm)!;
+    r.venda.aprovado_em = dataPlausivel(r.venda.aprovado_em, recebidoEm);
+  } else if (r.tipo === "checkout") {
+    r.checkout.criado_em = dataPlausivel(r.checkout.criado_em, recebidoEm)!;
+  }
+  return r;
 }
 
 /** Nome do evento para o log. */
