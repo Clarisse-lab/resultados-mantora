@@ -75,8 +75,8 @@ export default async function ClienteDetalhe({ params }: { params: Promise<{ id:
              case when i.tipo = 'meta_ads' then (select count(distinct data)::int from midia_diaria m
                   where m.cliente_id = i.cliente_id and m.conta_id = i.conta_id) else 0 end as dias_midia
       from integracoes i where i.cliente_id = ${id} order by i.criado_em`,
-    sql<{ id: number; recebido_em: Date; tipo_evento: string | null; erro: string | null; processado: boolean; integracao: string }[]>`
-      select e.id, e.recebido_em, e.tipo_evento, e.erro, e.processado, i.nome as integracao
+    sql<{ id: number; recebido_em: Date; tipo_evento: string | null; erro: string | null; processado: boolean; integracao: string; payload: unknown }[]>`
+      select e.id, e.recebido_em, e.tipo_evento, e.erro, e.processado, i.nome as integracao, e.payload
       from eventos_webhook e join integracoes i on i.id = e.integracao_id
       where i.cliente_id = ${id} order by e.recebido_em desc limit 15`,
     sql<{ id: string; email: string; nome: string | null }[]>`
@@ -396,6 +396,7 @@ export default async function ClienteDetalhe({ params }: { params: Promise<{ id:
               <th>Integração</th>
               <th>Evento</th>
               <th>Resultado</th>
+              <th>Dados</th>
             </tr>
           </thead>
           <tbody>
@@ -405,6 +406,14 @@ export default async function ClienteDetalhe({ params }: { params: Promise<{ id:
                 <td>{e.integracao}</td>
                 <td>{e.tipo_evento ?? "—"}</td>
                 <td className={e.erro ? (e.processado ? "text-texto-3" : "text-perigo") : "text-sucesso"}>{e.erro ?? "gravado"}</td>
+                <td className="!whitespace-normal">
+                  <details>
+                    <summary className="cursor-pointer text-xs text-texto-2 hover:text-texto">ver dados recebidos</summary>
+                    <pre className="num mt-2 max-h-80 max-w-[40rem] overflow-auto rounded-lg bg-superficie-2 p-3 text-[11px] leading-relaxed">
+                      {JSON.stringify(e.payload, null, 2)}
+                    </pre>
+                  </details>
+                </td>
               </tr>
             ))}
           </tbody>

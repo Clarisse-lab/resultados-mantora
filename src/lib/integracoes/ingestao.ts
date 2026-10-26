@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { sql } from "../db";
 import { atribuir, contextoPorNome, nomeSemId } from "../atribuicao";
 import { normalizar, tipoEvento, type Provedor, type Resultado } from "./normalizar";
+import { estrutura } from "./estrutura";
 import { decifrar } from "../cripto";
 
 export type Integracao = {
@@ -156,6 +157,10 @@ export async function processarWebhook(i: Integracao, payload: unknown) {
   const [ev] = await sql<{ id: number }[]>`
     insert into eventos_webhook (integracao_id, tipo_evento, payload)
     values (${i.id}, ${tipoEvento(payload)}, ${sql.json(payload as never)}) returning id`;
+  if (i.tipo === "pagtrust") {
+    // Formato da PagTrust ainda sendo mapeado: registra só a estrutura (sem dados pessoais)
+    console.log("[webhook pagtrust] estrutura:", JSON.stringify(estrutura(payload)));
+  }
   try {
     const r = normalizar(i.tipo as Provedor, payload);
     await gravar(i, r);
