@@ -122,3 +122,70 @@ describe("lerData", () => {
     expect(lerData("1729780000000")?.getTime()).toBe(1729780000000);
   });
 });
+
+describe("PagTrust (webhook 2.0, formato Hotmart)", () => {
+  const compra = (event: string, status: string) => ({
+    id: "123",
+    orderId: "456",
+    creation_date: 1792991515000,
+    event,
+    version: "2.0.0",
+    data: {
+      product: { id: 99, name: "Produto Teste", has_co_production: false },
+      buyer: { email: "c@x.com", name: "Cliente Teste", document: "12345678900", checkout_phone: "11987654321", address: { state: "", city: "" } },
+      commissions: [{ value: 90, currency_value: "BRL", source: "PRODUCER" }],
+      purchase: {
+        approved_date: 1792991515000,
+        price: { value: 197.9, currency_value: "BRL" },
+        full_price: { value: 197.9, currency_value: "BRL" },
+        origin: { xcod: "", src: "", sck: "", utmcampaign: "camp|120200000000000001", utmmedium: "conj", utmsource: "FB", content: "ad|120200000000000003", term: "" },
+        order_date: 1792991500000,
+        status,
+        transaction: "789",
+        payment: { installments_number: 1, type: "PIX" },
+      },
+    },
+  });
+
+  it("venda aprovada com valor, comprador e UTMs da origem", () => {
+    const r = normalizar("pagtrust", compra("PURCHASE_APPROVED", "APPROVED"));
+    expect(r.tipo).toBe("venda");
+    if (r.tipo !== "venda") return;
+    expect(r.venda).toMatchObject({
+      id_externo: "789",
+      status: "aprovada",
+      valor: 197.9,
+      nome: "Cliente Teste",
+      telefone: "11987654321",
+      uf: "SP",
+      produto: "Produto Teste",
+      utm_source: "FB",
+      utm_campaign: "camp|120200000000000001",
+      utm_content: "ad|120200000000000003",
+    });
+  });
+
+  it("reembolso e chargeback atualizam a mesma transação", () => {
+    const a = normalizar("pagtrust", compra("PURCHASE_REFUNDED", "REFUNDED"));
+    const b = normalizar("pagtrust", compra("PURCHASE_CHARGEBACK", "CHARGEBACK"));
+    expect(a.tipo === "venda" && a.venda.status).toBe("reembolsada");
+    expect(b.tipo === "venda" && b.venda.id_externo).toBe("789");
+    expect(b.tipo === "venda" && b.venda.status).toBe("chargeback");
+  });
+
+  it("carrinho abandonado vira checkout com UTMs", () => {
+    const r = normalizar("pagtrust", {
+      id: "c@x.com",
+      creation_date: 1792991515000,
+      event: "PURCHASE_OUT_OF_SHOPPING_CART",
+      version: "2.0.0",
+      data: {
+        product: { id: 99, name: "Produto Teste" },
+        buyer: { name: "Cliente Teste", email: "c@x.com", phone: "11987654321" },
+        utms: { utm_source: "FB", utm_medium: "conj", utm_campaign: "camp", utm_content: "ad", utm_term: "feed" },
+      },
+    });
+    expect(r.tipo).toBe("checkout");
+    if (r.tipo === "checkout") expect(r.checkout).toMatchObject({ id_externo: "c@x.com-1792991515000", telefone: "11987654321", utm_source: "FB", utm_campaign: "camp" });
+  });
+});

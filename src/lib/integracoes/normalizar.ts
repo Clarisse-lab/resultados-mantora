@@ -179,7 +179,11 @@ function hotmart(p: Obj): Resultado {
     return {
       tipo: "checkout",
       checkout: {
-        id_externo: str(p.id) ?? `${primeiro(d, "buyer.email") ?? ""}-${str(p.creation_date) ?? Date.now()}`,
+        // Hotmart manda um id único por evento; a PagTrust manda o e-mail do comprador no id
+        id_externo:
+          str(p.id) && !str(p.id)!.includes("@")
+            ? str(p.id)!
+            : `${str(p.id) ?? primeiro(d, "buyer.email") ?? ""}-${str(p.creation_date) ?? Date.now()}`,
         criado_em: lerData(p.creation_date) ?? new Date(),
         produto: primeiro(d, "product.name"),
         valor: lerNumero(ler(d, "offer.price.value") ?? ler(d, "purchase.price.value")),
@@ -223,8 +227,22 @@ function hotmart(p: Obj): Resultado {
         uf: primeiro(d, "buyer.address.state"),
         cidade: primeiro(d, "buyer.address.city"),
       }),
-      ...utmsDoPayload(ler(d, "purchase.origin") ?? d),
+      ...utmsComOrigem(d),
     },
+  };
+}
+
+/** UTMs da compra: Hotmart (src/sck) e PagTrust (purchase.origin.utmsource, utmcampaign, content, term). */
+function utmsComOrigem(d: unknown) {
+  const u = utmsDoPayload(ler(d, "purchase.origin") ?? d);
+  const o = ler(d, "purchase.origin");
+  return {
+    ...u,
+    utm_source: primeiro(o, "utmsource") ?? u.utm_source ?? null,
+    utm_medium: primeiro(o, "utmmedium") ?? u.utm_medium ?? null,
+    utm_campaign: primeiro(o, "utmcampaign") ?? u.utm_campaign ?? null,
+    utm_content: primeiro(o, "utmcontent", "content") ?? u.utm_content ?? null,
+    utm_term: primeiro(o, "utmterm", "term") ?? u.utm_term ?? null,
   };
 }
 
@@ -372,6 +390,8 @@ function generico(p: Obj): Resultado {
 export function normalizar(provedor: Provedor, payload: unknown): Resultado {
   if (!isObj(payload)) return { tipo: "ignorado", motivo: "payload não é um objeto JSON" };
   if (provedor === "hotmart") return hotmart(payload);
+  // A PagTrust (webhook versão 2.0) segue o formato da Hotmart: event + data.purchase/buyer
+  if (provedor === "pagtrust" && typeof payload.event === "string" && isObj(payload.data)) return hotmart(payload);
   if (provedor === "kiwify") return kiwify(payload);
   return generico(payload);
 }

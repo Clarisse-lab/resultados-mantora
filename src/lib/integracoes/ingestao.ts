@@ -179,8 +179,11 @@ export async function processarWebhook(i: Integracao, payload: unknown) {
 export async function reprocessar(integracaoId: string) {
   const [i] = await sql<Integracao[]>`select id, cliente_id, tipo, segredo, conta_id, ativo from integracoes where id = ${integracaoId}`;
   if (!i) return 0;
+  // Refaz do zero a partir dos eventos guardados: o que foi gravado com a leitura antiga sai
+  await sql`delete from vendas where integracao_id = ${i.id}`;
+  await sql`delete from checkouts where integracao_id = ${i.id}`;
   const eventos = await sql<{ id: number; payload: unknown }[]>`
-    select id, payload from eventos_webhook where integracao_id = ${i.id} order by recebido_em`;
+    select id, payload from eventos_webhook where integracao_id = ${i.id} order by recebido_em, id`;
   for (const e of eventos) {
     const r = normalizar(i.tipo as Provedor, e.payload);
     await gravar(i, r);
